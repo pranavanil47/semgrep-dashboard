@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Shield, GitBranch, Search } from "lucide-react"
+import { Shield, GitBranch, Search, Upload } from "lucide-react"
 import { VulnerabilityTable } from "@/components/vulnerability-table"
 import { MetricsCards } from "@/components/metrics-cards"
 import { VulnerabilityChart } from "@/components/vulnerability-chart"
 import { RecentScans } from "@/components/recent-scans"
+import { FileSelector } from "@/components/file-selector"
 
 export interface Vulnerability {
   id: string
@@ -42,10 +43,10 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [severityFilter, setSeverityFilter] = useState<string>("all")
   const [isConnected, setIsConnected] = useState(false)
+  const [showFileSelector, setShowFileSelector] = useState(false)
 
   // Simulate real-time data connection
   useEffect(() => {
-    // In a real implementation, this would be a WebSocket connection
     const connectToServer = () => {
       setIsConnected(true)
 
@@ -108,14 +109,31 @@ export default function Dashboard() {
 
     connectToServer()
 
-    // Simulate periodic updates
     const interval = setInterval(() => {
-      // In real implementation, this would handle incoming WebSocket messages
       console.log("Listening for new scan results...")
     }, 5000)
 
     return () => clearInterval(interval)
   }, [])
+
+  const handleDataLoaded = (vulnerabilities: Vulnerability[]) => {
+    const newScanResult: ScanResult = {
+      id: `scan-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      branch: "main",
+      commit: "remote-csv",
+      totalVulnerabilities: vulnerabilities.length,
+      criticalCount: vulnerabilities.filter((v) => v.severity === "critical").length,
+      highCount: vulnerabilities.filter((v) => v.severity === "high").length,
+      mediumCount: vulnerabilities.filter((v) => v.severity === "medium").length,
+      lowCount: vulnerabilities.filter((v) => v.severity === "low").length,
+      status: "completed",
+      vulnerabilities,
+    }
+
+    setScanResults((prev) => [newScanResult, ...prev])
+    setShowFileSelector(false)
+  }
 
   const allVulnerabilities = scanResults.flatMap((scan) => scan.vulnerabilities)
 
@@ -133,6 +151,29 @@ export default function Dashboard() {
   const mediumCount = allVulnerabilities.filter((v) => v.severity === "medium").length
   const lowCount = allVulnerabilities.filter((v) => v.severity === "low").length
 
+  if (showFileSelector) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
+        <div className="w-full max-w-4xl space-y-4">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold">Load CSV Data</h1>
+            <p className="text-muted-foreground">
+              Select a CSV file from your remote server to import vulnerability data
+            </p>
+          </div>
+
+          <FileSelector onDataLoaded={handleDataLoaded} />
+
+          <div className="text-center">
+            <Button variant="outline" onClick={() => setShowFileSelector(false)}>
+              Back to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
@@ -142,9 +183,13 @@ export default function Dashboard() {
             <h1 className="text-xl font-semibold">SAST Dashboard</h1>
           </div>
           <div className="ml-auto flex items-center space-x-4">
+            <Button variant="outline" size="sm" onClick={() => setShowFileSelector(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Load CSV
+            </Button>
             <div className="flex items-center space-x-2">
               <div className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
-              <span className="text-sm text-muted-foreground">{isConnected ? "Connected" : "Disconnected"}</span>
+              <span className="text-sm text-muted-foreground">{isConnected ? "Dashboard Ready" : "Disconnected"}</span>
             </div>
           </div>
         </div>
